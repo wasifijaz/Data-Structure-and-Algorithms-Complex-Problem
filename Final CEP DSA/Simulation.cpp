@@ -1,0 +1,259 @@
+#include"Simulation.h"
+
+int i, j, k;
+Time t;
+Student s[numOfDays][300];
+TA teachersArray[2];
+TA availableTA[2];
+stack <int> lap;
+
+void Simulation::startSimulation()
+{
+	queue <Student> qOfStu;
+	queue <Student> qQA;
+	queue <Student> returnLap;
+
+	int time;
+	ifstream inputFile;
+	TA ta;
+	int totalLaps = 0;
+	int totalTAs = 0;
+	int labOpen = 0;
+	int numOfStudentsPerDay = 0;
+	int numOfProgams = 0;
+	int numStudentsEntered = 0;
+	int numHappyStudents = 0;
+
+	inputFile.open("input1.txt");
+	if (!inputFile.is_open())
+	{
+		cout << "File not Found, Press ENTER to exit\n";
+	}
+	else
+	{
+		inputFile >> totalLaps;
+		setLaptops(inputFile, totalLaps);
+
+		inputFile >> totalTAs;
+		setTA(inputFile, totalTAs);
+
+		inputFile >> numOfProgams;
+
+		for (i = 0; i < numOfProgams; i++)
+		{
+			cout << "**********\nProgram " << i + 1 << ":\n**********";
+			for (j = 0; j < numOfDays; j++)
+			{
+				time = 0;
+				numHappyStudents = 0;
+				numStudentsEntered = 0;
+
+				inputFile >> numOfStudentsPerDay;
+				setStudents(inputFile, numOfStudentsPerDay, j);
+
+				if (j == 0)
+				{
+					cout << "\n\nMonday:\n";
+				}
+				else if (j == 1)
+				{
+					cout << "\n\nTuesday:\n";
+				}
+				else
+				{
+					cout << "\n\nWednesday:\n";
+				}
+
+				labOpen = 1;
+				while (labOpen != 0)
+				{
+					assignTA(j, totalTAs, time);
+					for (k = 0; k < numOfStudentsPerDay; k++)
+					{
+						if (!lap.empty() && time >= s[j][k].enterTime)
+						{
+							if (time == s[j][k].enterTime)
+							{
+								cout << t.convertTime(time) << "\t" << s[j][k].firstName << " " << s[j][k].lastName << " has arrived in TA#007." << endl;
+								numStudentsEntered++;
+							}
+							if (time < ta.endTimes[j])
+							{
+								if (s[j][k].count == 2 && s[j][k].lapSerial == 0)
+								{
+									s[j][k].lapSerial = assignLaptop();
+									cout << t.convertTime(time) << "\t" << s[j][k].firstName << " " << s[j][k].lastName << " has borrowed laptop " << s[j][k].lapSerial << " and moved to the TA line" << endl;
+									qOfStu.push(s[j][k]);
+								}
+								s[j][k].count++;
+							}
+							else
+							{
+								if (s[j][k].lapSerial == 0)
+								{
+									cout << t.convertTime(time) << "\t" << s[j][k].firstName << " " << s[j][k].lastName << " never even got a laptop and went home FRUSTRATED." << endl;
+								}
+							}
+						}
+						else
+						{
+							break;
+						}
+					}
+				label:
+					if (qOfStu.empty() == 0)
+					{
+						if (ta.studentWithTA.firstName == "")
+						{
+							qQA.push(qOfStu.front());
+							ta.studentWithTA = qQA.front();
+							qQA.pop();
+							qOfStu.pop();
+							cout << t.convertTime(time) << "\t" << ta.studentWithTA.firstName << " " << ta.studentWithTA.lastName << " is getting help from " << ta.name << "." << endl;
+							ta.studentWithTA.count = 0;
+						}
+						else
+						{
+							qQA.push(qOfStu.front());
+							qOfStu.pop();
+						}
+					}
+					else
+					{
+						if (ta.studentWithTA.firstName == "" && qQA.empty() == 0)
+						{
+							ta.studentWithTA = qQA.front();
+							qQA.pop();
+							cout << t.convertTime(time) << "\t" << ta.studentWithTA.firstName << " " << ta.studentWithTA.lastName << " is getting help from " << ta.name << "." << endl;
+							ta.studentWithTA.count = 0;
+						}
+					}
+
+					if (ta.studentWithTA.firstName != "" && ta.studentWithTA.count == 5)
+					{
+						ta.studentWithTA.numAnswered++;
+						if (ta.studentWithTA.numAnswered < ta.studentWithTA.numQuestions)
+						{
+							cout << t.convertTime(time) << "\t" << ta.studentWithTA.firstName << " " << ta.studentWithTA.lastName << " has had one question answeredand gotten back in line." << endl;
+							ta.studentWithTA.count = 0;
+							qQA.push(ta.studentWithTA);
+							ta.studentWithTA.firstName = "";
+							goto label;
+						}
+						else
+						{
+							cout << t.convertTime(time) << "\t" << ta.studentWithTA.firstName << " " << ta.studentWithTA.lastName << " has no more questionsand will now return the laptop." << endl;
+							ta.studentWithTA.count = 0;
+							returnLap.push(ta.studentWithTA);
+							ta.studentWithTA.firstName = "";
+							goto label;
+						}
+					}
+					ta.studentWithTA.count++;
+					if (returnLap.empty() == 0)
+					{
+						if (returnLap.front().count == 2)
+						{
+							returnLaptop(returnLap.front(), time);
+							numHappyStudents += happyORfrustrated(returnLap.front().numQuestions, returnLap.front().numAnswered);
+							returnLap.pop();
+						}
+						else
+						{
+							returnLap.front().count++;
+						}
+					}
+					if (time == ta.endTimes[j] - 1)
+					{
+						while (qQA.empty() == 0)
+						{
+							returnLap.push(qQA.front());
+							qQA.pop();
+						}
+					}
+					if (time == ta.endTimes[j])
+					{
+						cout << t.convertTime(time) << "\t" << ta.name << " has finished lab hours." << endl;
+					}
+					time++;
+				
+			
+					/*while (returnLap.empty() == 0)
+					{
+						returnLaptop(returnLap.front(), time);
+						numHappyStudents += happyORfrustrated(returnLap.front().numQuestions, returnLap.front().numAnswered);
+						returnLap.pop();
+						if (ta.studentWithTA.firstName != "")
+						{
+							ta.studentWithTA.count++;
+						}
+						time++;
+					}
+
+					while (labOpen != 0)
+					{
+						if (ta.studentWithTA.firstName != "" && ta.studentWithTA.count == 5)
+						{
+							cout << t.convertTime(time) << "\t" << ta.studentWithTA.firstName << " " << ta.studentWithTA.lastName << " has had one question answeredand, but must now return the laptop and exit the lab." << endl;
+							ta.studentWithTA.count = 0;
+							ta.studentWithTA.numAnswered++;
+							returnLap.push(ta.studentWithTA);
+						}
+						ta.studentWithTA.count++;
+						if (returnLap.empty() == 0)
+						{
+							if (returnLap.front().count == 2)
+							{
+								returnLaptop(returnLap.front(), time);
+								numHappyStudents += happyORfrustrated(returnLap.front().numQuestions, returnLap.front().numAnswered);
+								returnLap.pop();
+								ta.studentWithTA.firstName = "";
+							}
+							else
+							{
+								returnLap.front().count++;
+							}
+						}
+						if (ta.studentWithTA.firstName == "")
+						{
+							labOpen = 0;
+						}
+						time++;
+					}*/
+				}
+				switch (j) {
+				case 0:
+					cout << "\nMonday's Lab Summary:" << endl;
+					printSummary(time - 1, numStudentsEntered, numHappyStudents);
+					break;
+				case 1:
+					cout << "\nTuesday's Lab Summary:" << endl;
+					printSummary(time - 1, numStudentsEntered, numHappyStudents);
+					break;
+				case 2:
+					cout << "\nWednesday's Lab Summary:" << endl;
+					printSummary(time - 1, numStudentsEntered, numHappyStudents);
+					break;
+				}
+			}
+			cout << "\n\n";
+		}
+	}
+}
+
+void Simulation::printSummary(int time, int numStudentsEntered, int numHappyStudents)
+{
+	int hour = 0;
+	int min = 0;
+	while (time >= 60)
+	{
+		time = time - 60;
+		hour++;
+	}
+	min = time;
+	cout << "The TA Lab was open for " << hour << " hours and " << min << " minutes.\n" << numStudentsEntered << " visited the lab. Out of those students, only " << numHappyStudents << " left happy.\n";
+	cout << "The remaing left frustrated.\n\nLesson Learned:  Do not procrastinate! Start programs early!\n";
+}
+
+
+
